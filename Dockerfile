@@ -31,6 +31,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Copy better-sqlite3 native module (not included in standalone)
+COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
+COPY --from=builder /app/node_modules/bindings ./node_modules/bindings
+COPY --from=builder /app/node_modules/prebuild-install ./node_modules/prebuild-install
+COPY --from=builder /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
+
 # Create data directory for SQLite (will be mounted as volume)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
