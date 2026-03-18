@@ -62,5 +62,14 @@ function validateSingleOutput(data: Record<string, unknown>): VariationOutput {
     };
   }
 
+  // Parse auto_params
+  if (data.auto_params && typeof data.auto_params === 'object') {
+    const ap = data.auto_params as Record<string, unknown>;
+    output.auto_params = {};
+    for (const [k, v] of Object.entries(ap)) {
+      output.auto_params[k] = String(v || '');
+    }
+  }
+
   return output;
 }

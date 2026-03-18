@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { Generation, StoryboardScene } from '@/types';
 import { VARIATION_TYPES, VARIATION_GROUPS, isValidCombo, getVariationType } from '@/lib/ai/variation-types';
+import { STRATEGIES } from '@/lib/ai/strategies';
 
 interface ScriptWithProduct {
   id: string;
@@ -77,6 +78,13 @@ export default function GenerationWorkspacePage() {
   const [variationParams, setVariationParams] = useState<Record<string, string>>({});
   const [activeGroup, setActiveGroup] = useState('A');
   const [activeTab, setActiveTab] = useState<'create' | 'history' | 'compare'>('create');
+  const [mode, setMode] = useState<'auto' | 'advanced'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('cm-mode') as 'auto' | 'advanced') || 'auto';
+    }
+    return 'auto';
+  });
+  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{
     variation_label: string;
@@ -84,6 +92,7 @@ export default function GenerationWorkspacePage() {
     full_script: string;
     storyboard: StoryboardScene[];
     id: string;
+    auto_params?: Record<string, string>;
   } | null>(null);
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [compareGen, setCompareGen] = useState<Generation | null>(null);
@@ -135,6 +144,54 @@ export default function GenerationWorkspacePage() {
 
   function handleParamChange(key: string, value: string) {
     setVariationParams((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function switchMode(newMode: 'auto' | 'advanced') {
+    setMode(newMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cm-mode', newMode);
+    }
+  }
+
+  async function handleGenerateAuto() {
+    if (!selectedStrategy) {
+      setError('Vui lòng chọn 1 chiến lược');
+      return;
+    }
+
+    setGenerating(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script_id: scriptId,
+          strategy_id: selectedStrategy,
+          variation_types: [],
+          variation_params: {},
+          num_variations: 1,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || 'Lỗi tạo biến thể');
+        return;
+      }
+
+      if (data.data && data.data.length > 0) {
+        setResult(data.data[0]);
+        loadGenerations();
+        loadData();
+      }
+    } catch {
+      setError('Lỗi kết nối server');
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function handleGenerate() {
@@ -325,199 +382,300 @@ export default function GenerationWorkspacePage() {
               </div>
             </div>
 
-            {/* Smart Suggestions */}
-            {suggestions.length > 0 && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-emerald-200/60 shadow-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-5 h-5 rounded-[6px] bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-emerald-800 text-sm">Gợi ý combo chưa dùng</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {suggestions.slice(0, 5).map((s) => (
-                    <button
-                      key={s.combo}
-                      onClick={() => {
-                        setSelectedTypes(s.types);
-                        setVariationParams({});
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/60 rounded-full text-xs text-emerald-700 font-medium hover:bg-emerald-100 hover:border-emerald-300 transition-all duration-200"
-                    >
-                      <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            {/* Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="inline-flex gap-1 bg-gray-100/80 p-1 rounded-[10px]">
+                <button
+                  onClick={() => switchMode('auto')}
+                  className={`px-3.5 py-1.5 rounded-[8px] text-xs font-medium transition-all duration-200 ${
+                    mode === 'auto'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  AI tự động
+                </button>
+                <button
+                  onClick={() => switchMode('advanced')}
+                  className={`px-3.5 py-1.5 rounded-[8px] text-xs font-medium transition-all duration-200 ${
+                    mode === 'advanced'
+                      ? 'bg-gray-700 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Nâng cao
+                </button>
+              </div>
+              {mode === 'auto' && (
+                <span className="text-xs text-gray-400">AI tự chọn combo + tham số</span>
+              )}
+            </div>
+
+            {/* ====== AUTO MODE: Strategy Cards ====== */}
+            {mode === 'auto' && (
+              <>
+                <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-white/60 shadow-card p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-5 h-5 rounded-[6px] bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                       </svg>
-                      {s.labels.join(' + ')}
-                      {s.times_used > 0 && <span className="text-emerald-400">({s.times_used}x)</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Variation Configurator */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-white/60 shadow-card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-                </svg>
-                <h3 className="font-semibold text-gray-900 text-sm">Chọn kiểu biến thể</h3>
-                <span className="text-xs text-gray-400 ml-auto">{selectedTypes.length}/3</span>
-              </div>
-
-              {/* Group Tabs */}
-              <div className="flex gap-1 mb-4 bg-gray-100/80 p-1 rounded-[12px]">
-                {Object.entries(VARIATION_GROUPS).map(([key, group]) => {
-                  const accent = groupAccent[key] || groupAccent.A;
-                  const isActive = activeGroup === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setActiveGroup(key)}
-                      className={`flex-1 px-3 py-2 rounded-[10px] text-xs font-medium transition-all duration-200 ${
-                        isActive
-                          ? `${accent.activeBg} ${accent.text} shadow-sm`
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      {group.name_vi}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Variation Type Cards */}
-              <div className="space-y-2">
-                {VARIATION_TYPES.filter((t) => t.group === activeGroup).map((vType) => {
-                  const isSelected = selectedTypes.includes(vType.id);
-                  return (
-                    <div key={vType.id}>
-                      <button
-                        onClick={() => toggleType(vType.id)}
-                        className={`w-full text-left p-3.5 rounded-[12px] border transition-all duration-200 relative overflow-hidden ${
-                          isSelected
-                            ? 'border-emerald-400 bg-emerald-50/50 shadow-sm'
-                            : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50/50'
-                        }`}
-                      >
-                        {/* Colored left border when selected */}
-                        {isSelected && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-l-[12px]" />
-                        )}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-[8px] bg-gray-100/80 text-[10px] font-mono font-bold text-gray-500">
-                              {vType.id}
-                            </span>
-                            <span className="font-medium text-sm text-gray-900">{vType.name_vi}</span>
-                          </div>
-                          <div className={`w-5 h-5 rounded-[6px] border-2 flex items-center justify-center transition-all duration-200 ${
-                            isSelected ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
-                          }`}>
-                            {isSelected && (
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1.5 ml-9">{vType.description_vi}</p>
-                        <p className="text-xs text-gray-400 mt-0.5 ml-9 italic">{vType.example_vi}</p>
-                      </button>
-
-                      {/* Param inputs when selected */}
-                      {isSelected && vType.params.length > 0 && (
-                        <div className="ml-9 mt-2 space-y-2.5 pb-2 animate-fade-in">
-                          {vType.params.map((param) => (
-                            <div key={param.key}>
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                {param.label_vi} {param.required && <span className="text-red-500">*</span>}
-                              </label>
-                              {param.type === 'select' && param.options ? (
-                                <select
-                                  value={variationParams[param.key] || ''}
-                                  onChange={(e) => handleParamChange(param.key, e.target.value)}
-                                  className="w-full px-3 py-2.5 border border-gray-200 rounded-[12px] text-sm text-gray-900 bg-white/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
-                                >
-                                  <option value="">Chọn...</option>
-                                  {param.options.map((opt) => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type="text"
-                                  value={variationParams[param.key] || ''}
-                                  onChange={(e) => handleParamChange(param.key, e.target.value)}
-                                  placeholder={param.placeholder}
-                                  className="w-full px-3 py-2.5 border border-gray-200 rounded-[12px] text-sm text-gray-900 bg-white/80 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Selected combo summary */}
-              {selectedTypes.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400 font-medium">Đã chọn:</span>
-                    {selectedTypes.map((typeId) => {
-                      const vType = getVariationType(typeId);
+                    <h3 className="font-semibold text-gray-900 text-sm">Chọn chiến lược</h3>
+                    <span className="text-xs text-gray-400 ml-auto">Chọn 1, AI lo phần còn lại</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {STRATEGIES.map((strategy) => {
+                      const isSelected = selectedStrategy === strategy.id;
                       return (
-                        <span
-                          key={typeId}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium"
+                        <button
+                          key={strategy.id}
+                          onClick={() => setSelectedStrategy(isSelected ? null : strategy.id)}
+                          className={`text-left p-4 rounded-[14px] border-2 transition-all duration-200 relative overflow-hidden group ${
+                            isSelected
+                              ? 'border-emerald-400 bg-emerald-50/80 shadow-md'
+                              : 'border-gray-200/80 hover:border-emerald-300 hover:bg-emerald-50/30 hover:shadow-sm'
+                          }`}
                         >
-                          <span className="font-mono font-bold">{typeId}</span>
-                          <span className="text-emerald-500">-</span>
-                          {vType?.name_vi}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleType(typeId); }}
-                            className="ml-0.5 text-emerald-400 hover:text-emerald-700 transition-colors"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </span>
+                          {isSelected && (
+                            <div className="absolute right-3 top-3">
+                              <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                          <div className="text-xl mb-2">{strategy.icon}</div>
+                          <div className="font-semibold text-sm text-gray-900 mb-1 pr-6">{strategy.name_vi}</div>
+                          <p className="text-xs text-gray-500 leading-relaxed">{strategy.description_vi}</p>
+                        </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Generate Button */}
-            <button
-              onClick={handleGenerate}
-              disabled={generating || selectedTypes.length === 0}
-              className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white py-4 rounded-[14px] font-semibold text-base shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              {generating ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Đang tạo biến thể...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
-                  </svg>
-                  TẠO BIẾN THỂ
-                </>
-              )}
-            </button>
+                {/* Auto Generate Button */}
+                <button
+                  onClick={handleGenerateAuto}
+                  disabled={generating || !selectedStrategy}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white py-4 rounded-[14px] font-semibold text-base shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      AI đang tạo biến thể...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
+                      </svg>
+                      TẠO BIẾN THỂ
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+
+            {/* ====== ADVANCED MODE: Original UI ====== */}
+            {mode === 'advanced' && (
+              <>
+                {/* Smart Suggestions */}
+                {suggestions.length > 0 && (
+                  <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-emerald-200/60 shadow-card p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-5 h-5 rounded-[6px] bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-emerald-800 text-sm">Gợi ý combo chưa dùng</h3>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestions.slice(0, 5).map((s) => (
+                        <button
+                          key={s.combo}
+                          onClick={() => {
+                            setSelectedTypes(s.types);
+                            setVariationParams({});
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/60 rounded-full text-xs text-emerald-700 font-medium hover:bg-emerald-100 hover:border-emerald-300 transition-all duration-200"
+                        >
+                          <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                          </svg>
+                          {s.labels.join(' + ')}
+                          {s.times_used > 0 && <span className="text-emerald-400">({s.times_used}x)</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Variation Configurator */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-white/60 shadow-card p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                    </svg>
+                    <h3 className="font-semibold text-gray-900 text-sm">Chọn kiểu biến thể</h3>
+                    <span className="text-xs text-gray-400 ml-auto">{selectedTypes.length}/3</span>
+                  </div>
+
+                  {/* Group Tabs */}
+                  <div className="flex gap-1 mb-4 bg-gray-100/80 p-1 rounded-[12px]">
+                    {Object.entries(VARIATION_GROUPS).map(([key, group]) => {
+                      const accent = groupAccent[key] || groupAccent.A;
+                      const isActive = activeGroup === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setActiveGroup(key)}
+                          className={`flex-1 px-3 py-2 rounded-[10px] text-xs font-medium transition-all duration-200 ${
+                            isActive
+                              ? `${accent.activeBg} ${accent.text} shadow-sm`
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          {group.name_vi}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Variation Type Cards */}
+                  <div className="space-y-2">
+                    {VARIATION_TYPES.filter((t) => t.group === activeGroup).map((vType) => {
+                      const isSelected = selectedTypes.includes(vType.id);
+                      return (
+                        <div key={vType.id}>
+                          <button
+                            onClick={() => toggleType(vType.id)}
+                            className={`w-full text-left p-3.5 rounded-[12px] border transition-all duration-200 relative overflow-hidden ${
+                              isSelected
+                                ? 'border-emerald-400 bg-emerald-50/50 shadow-sm'
+                                : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50/50'
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-l-[12px]" />
+                            )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-[8px] bg-gray-100/80 text-[10px] font-mono font-bold text-gray-500">
+                                  {vType.id}
+                                </span>
+                                <span className="font-medium text-sm text-gray-900">{vType.name_vi}</span>
+                              </div>
+                              <div className={`w-5 h-5 rounded-[6px] border-2 flex items-center justify-center transition-all duration-200 ${
+                                isSelected ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
+                              }`}>
+                                {isSelected && (
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1.5 ml-9">{vType.description_vi}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 ml-9 italic">{vType.example_vi}</p>
+                          </button>
+
+                          {isSelected && vType.params.length > 0 && (
+                            <div className="ml-9 mt-2 space-y-2.5 pb-2 animate-fade-in">
+                              {vType.params.map((param) => (
+                                <div key={param.key}>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                    {param.label_vi} {param.required && <span className="text-red-500">*</span>}
+                                  </label>
+                                  {param.type === 'select' && param.options ? (
+                                    <select
+                                      value={variationParams[param.key] || ''}
+                                      onChange={(e) => handleParamChange(param.key, e.target.value)}
+                                      className="w-full px-3 py-2.5 border border-gray-200 rounded-[12px] text-sm text-gray-900 bg-white/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                                    >
+                                      <option value="">Chọn...</option>
+                                      {param.options.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      value={variationParams[param.key] || ''}
+                                      onChange={(e) => handleParamChange(param.key, e.target.value)}
+                                      placeholder={param.placeholder}
+                                      className="w-full px-3 py-2.5 border border-gray-200 rounded-[12px] text-sm text-gray-900 bg-white/80 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {selectedTypes.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-gray-400 font-medium">Đã chọn:</span>
+                        {selectedTypes.map((typeId) => {
+                          const vType = getVariationType(typeId);
+                          return (
+                            <span
+                              key={typeId}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium"
+                            >
+                              <span className="font-mono font-bold">{typeId}</span>
+                              <span className="text-emerald-500">-</span>
+                              {vType?.name_vi}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleType(typeId); }}
+                                className="ml-0.5 text-emerald-400 hover:text-emerald-700 transition-colors"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Generate Button */}
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || selectedTypes.length === 0}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white py-4 rounded-[14px] font-semibold text-base shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Đang tạo biến thể...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
+                      </svg>
+                      TẠO BIẾN THỂ
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
 
           {/* -------- Right Panel 2/5 -------- */}
@@ -569,6 +727,20 @@ export default function GenerationWorkspacePage() {
                 </div>
 
                 <p className="text-xs text-gray-400 leading-relaxed">{result.variation_description}</p>
+
+                {/* Auto Params - what AI chose */}
+                {result.auto_params && Object.keys(result.auto_params).length > 0 && (
+                  <div className="bg-emerald-50/80 rounded-[12px] p-3 border border-emerald-200/40">
+                    <h4 className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1.5">AI đã chọn</h4>
+                    <div className="space-y-1">
+                      {Object.entries(result.auto_params).map(([key, value]) => (
+                        <div key={key} className="text-xs text-emerald-700">
+                          <span className="font-medium text-emerald-500">{key}:</span> {value}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Full Script */}
                 <div>
