@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getScriptWithProduct } from '@/lib/db/scripts';
 import { createGeneration, getGenerationsByScript } from '@/lib/db/generations';
 import { incrementTimesMultiplied } from '@/lib/db/scripts';
-import { generateVariation } from '@/lib/ai/claude-client';
+import { generateWithFallback } from '@/lib/ai/ai-client';
+import type { AIModel } from '@/lib/ai/ai-client';
 import { generateFingerprint, computeSimilarity } from '@/lib/anti-dup/fingerprint';
+import { getSetting } from '@/lib/db/settings';
 import { buildPreviousVariationsContext } from '@/lib/anti-dup/context-injector';
 import { getStrategy } from '@/lib/ai/strategies';
 import { getUsedCombos } from '@/lib/anti-dup/freshness-calculator';
@@ -78,8 +80,11 @@ export async function POST(req: NextRequest) {
 
     const variationType = variation_types.sort().join('+');
 
-    // Call Claude API
-    const results = await generateVariation({
+    // Get preferred AI model from settings
+    const preferredModel = getSetting('ai_model', 'claude') as AIModel;
+
+    // Call AI with fallback
+    const { results, model_used, is_fallback } = await generateWithFallback({
       productName: scriptWithProduct.product_name,
       productMarket: scriptWithProduct.product_market,
       productKb: scriptWithProduct.product_kb,
@@ -88,7 +93,7 @@ export async function POST(req: NextRequest) {
       variationParams: variation_params || {},
       numVariations: num_variations,
       previousVariations,
-    });
+    }, preferredModel);
 
     // Save results
     const savedGenerations = [];
@@ -118,7 +123,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, data: savedGenerations });
+    return NextResponse.json({ success: true, data: savedGenerations, model_used, is_fallback });
   } catch (error) {
     console.error('Generate error:', error);
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
