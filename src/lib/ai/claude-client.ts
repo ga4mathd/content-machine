@@ -3,9 +3,16 @@ import { SYSTEM_PROMPT, buildUserPrompt } from './prompts';
 import { parseAIOutput } from './output-parser';
 import type { VariationOutput } from '@/types';
 
-const client = new Anthropic({
-  apiKey: process.env.CLAUDE_API_KEY,
-});
+let client: Anthropic | null = null;
+
+function getClient(): Anthropic {
+  if (!client) {
+    client = new Anthropic({
+      apiKey: process.env.CLAUDE_API_KEY,
+    });
+  }
+  return client;
+}
 
 interface GenerateParams {
   productName: string;
@@ -21,7 +28,7 @@ interface GenerateParams {
 export async function generateVariation(params: GenerateParams): Promise<VariationOutput[]> {
   const userPrompt = buildUserPrompt(params);
 
-  const response = await client.messages.create({
+  const response = await getClient().messages.create({
     model: 'claude-opus-4-20250514',
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
