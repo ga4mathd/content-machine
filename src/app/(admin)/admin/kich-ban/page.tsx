@@ -150,15 +150,26 @@ export default function ScriptListPage() {
             Quản lý kịch bản gốc để nhân bản nội dung
           </p>
         </div>
-        <Link
-          href="/admin/kich-ban/tao-moi"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-5 py-2.5 rounded-[12px] text-sm font-medium hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-card hover:shadow-card-hover"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Thêm kịch bản
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/kich-ban/import"
+            className="inline-flex items-center gap-2 bg-white border border-primary-200 text-primary-600 px-5 py-2.5 rounded-[12px] text-sm font-medium hover:bg-primary-50 transition-all duration-200 shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Import Excel
+          </Link>
+          <Link
+            href="/admin/kich-ban/tao-moi"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-5 py-2.5 rounded-[12px] text-sm font-medium hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-card hover:shadow-card-hover"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Thêm kịch bản
+          </Link>
+        </div>
       </div>
 
       {/* Product Filter Pills */}
