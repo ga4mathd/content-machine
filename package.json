@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "seed": "node scripts/seed-from-excel.js",
+    "build": "node scripts/seed-from-excel.js && next build",
     "start": "next start",
     "lint": "next lint"
   },
