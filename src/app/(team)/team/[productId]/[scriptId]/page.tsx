@@ -85,6 +85,12 @@ export default function GenerationWorkspacePage() {
     return 'auto';
   });
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<'claude' | 'gemini'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('cm-ai-model') as 'claude' | 'gemini') || 'claude';
+    }
+    return 'claude';
+  });
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{
     variation_label: string;
@@ -155,6 +161,13 @@ export default function GenerationWorkspacePage() {
     }
   }
 
+  function switchModel(model: 'claude' | 'gemini') {
+    setSelectedModel(model);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cm-ai-model', model);
+    }
+  }
+
   async function handleGenerateAuto() {
     if (!selectedStrategy) {
       setError('Vui lòng chọn 1 chiến lược');
@@ -175,6 +188,7 @@ export default function GenerationWorkspacePage() {
           variation_types: [],
           variation_params: {},
           num_variations: 1,
+          model: selectedModel,
         }),
       });
 
@@ -221,6 +235,7 @@ export default function GenerationWorkspacePage() {
           variation_types: selectedTypes,
           variation_params: variationParams,
           num_variations: 1,
+          model: selectedModel,
         }),
       });
 
@@ -318,10 +333,36 @@ export default function GenerationWorkspacePage() {
           </div>
         </div>
 
-        {/* Freshness Badge */}
-        <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-[14px] ${fStyle.bg} border border-current/5 ${fStyle.pulse ? 'animate-pulse-soft' : ''}`}>
-          <div className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${fStyle.gradient}`} />
-          <span className={`text-sm font-semibold ${fStyle.text}`}>Freshness: {freshness}/100</span>
+        <div className="flex items-center gap-3">
+          {/* Model Selector */}
+          <div className="inline-flex gap-0.5 bg-gray-100/80 p-0.5 rounded-[10px]">
+            <button
+              onClick={() => switchModel('claude')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-medium transition-all duration-200 ${
+                selectedModel === 'claude'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span>🟠</span> Claude
+            </button>
+            <button
+              onClick={() => switchModel('gemini')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-medium transition-all duration-200 ${
+                selectedModel === 'gemini'
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span>🔵</span> Gemini
+            </button>
+          </div>
+
+          {/* Freshness Badge */}
+          <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-[14px] ${fStyle.bg} border border-current/5 ${fStyle.pulse ? 'animate-pulse-soft' : ''}`}>
+            <div className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${fStyle.gradient}`} />
+            <span className={`text-sm font-semibold ${fStyle.text}`}>Freshness: {freshness}/100</span>
+          </div>
         </div>
       </div>
 

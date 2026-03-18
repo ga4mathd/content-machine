@@ -80,8 +80,11 @@ export async function POST(req: NextRequest) {
 
     const variationType = variation_types.sort().join('+');
 
-    // Get preferred AI model from settings
-    const preferredModel = getSetting('ai_model', 'claude') as AIModel;
+    // Get preferred AI model: client choice > admin setting > default
+    const clientModel = (body as unknown as Record<string, unknown>).model as string | undefined;
+    const preferredModel = (clientModel === 'claude' || clientModel === 'gemini')
+      ? clientModel as AIModel
+      : getSetting('ai_model', 'claude') as AIModel;
 
     // Call AI with fallback
     const { results, model_used, is_fallback } = await generateWithFallback({
