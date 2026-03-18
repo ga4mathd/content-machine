@@ -30,7 +30,7 @@ export async function generateVariation(params: GenerateParams): Promise<Variati
 
   const response = await getClient().messages.create({
     model: 'claude-opus-4-20250514',
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });

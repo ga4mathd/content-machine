@@ -28,7 +28,7 @@ export async function generateVariationGemini(params: GenerateParams): Promise<V
     contents: userPrompt,
     config: {
       systemInstruction: SYSTEM_PROMPT,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
       temperature: 0.8,
     },
   });
