@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { v4 as uuid } from 'uuid';
+import { SEED_PRODUCTS, SEED_SCRIPTS_GT, SEED_SCRIPTS_TDRT } from './db/seed-data';
 
 let db: Database.Database | null = null;
 
@@ -16,6 +18,7 @@ export function getDb(): Database.Database {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     initSchema(db);
+    autoSeed(db);
   }
   return db;
 }
@@ -69,4 +72,38 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_gen_fingerprint ON generations(fingerprint);
     CREATE INDEX IF NOT EXISTS idx_gen_type ON generations(variation_type);
   `);
+}
+
+function autoSeed(db: Database.Database) {
+  const { count } = db.prepare('SELECT COUNT(*) as count FROM scripts').get() as { count: number };
+  if (count > 0) return; // Already has data
+
+  console.log('[DB] No scripts found, seeding initial data...');
+
+  // Clear orphan products
+  db.prepare('DELETE FROM products').run();
+
+  const insertProduct = db.prepare('INSERT INTO products (id, name, market, kb_content) VALUES (?, ?, ?, ?)');
+  const insertScript = db.prepare('INSERT INTO scripts (id, product_id, title, content, performance_notes) VALUES (?, ?, ?, ?, ?)');
+
+  const seed = db.transaction(() => {
+    // Product 1: Giao tiếp
+    const gtId = uuid();
+    insertProduct.run(gtId, SEED_PRODUCTS[0].name, SEED_PRODUCTS[0].market, SEED_PRODUCTS[0].kb_content);
+    for (const s of SEED_SCRIPTS_GT) {
+      insertScript.run(uuid(), gtId, s.title, s.content, s.performance_notes);
+    }
+    console.log(`[DB] ✅ ${SEED_PRODUCTS[0].name}: ${SEED_SCRIPTS_GT.length} scripts`);
+
+    // Product 2: Tiền đẻ ra tiền
+    const tdrtId = uuid();
+    insertProduct.run(tdrtId, SEED_PRODUCTS[1].name, SEED_PRODUCTS[1].market, SEED_PRODUCTS[1].kb_content);
+    for (const s of SEED_SCRIPTS_TDRT) {
+      insertScript.run(uuid(), tdrtId, s.title, s.content, s.performance_notes);
+    }
+    console.log(`[DB] ✅ ${SEED_PRODUCTS[1].name}: ${SEED_SCRIPTS_TDRT.length} scripts`);
+  });
+
+  seed();
+  console.log('[DB] Seed complete');
 }

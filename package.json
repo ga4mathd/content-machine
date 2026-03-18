@@ -6,7 +6,7 @@
     "dev": "next dev",
     "seed": "node scripts/seed-from-excel.js",
     "build": "next build",
-    "start": "node scripts/seed-from-excel.js && next start",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
