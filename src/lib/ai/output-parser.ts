@@ -1,4 +1,4 @@
-import type { VariationOutput } from '@/types';
+import type { VariationOutput, ProductionNote } from '@/types';
 
 export function parseAIOutput(rawText: string): VariationOutput | VariationOutput[] {
   // Remove markdown code blocks if present
@@ -48,6 +48,18 @@ function validateSingleOutput(data: Record<string, unknown>): VariationOutput {
       music_mood: String(scene.music_mood || ''),
       transition: String(scene.transition || 'cut'),
     }));
+  }
+
+  // Parse production_note
+  if (data.production_note && typeof data.production_note === 'object') {
+    const pn = data.production_note as Record<string, unknown>;
+    output.production_note = {
+      visual_style: String(pn.visual_style || ''),
+      footage_suggestions: String(pn.footage_suggestions || ''),
+      music_mood: String(pn.music_mood || ''),
+      text_overlay_tips: String(pn.text_overlay_tips || ''),
+      estimated_duration: String(pn.estimated_duration || ''),
+    } as ProductionNote;
   }
 
   // Parse fingerprint

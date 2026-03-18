@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import type { Generation, StoryboardScene } from '@/types';
+import type { Generation, StoryboardScene, ProductionNote } from '@/types';
 import { VARIATION_TYPES, VARIATION_GROUPS, isValidCombo, getVariationType } from '@/lib/ai/variation-types';
 import { STRATEGIES } from '@/lib/ai/strategies';
 
@@ -97,6 +97,7 @@ export default function GenerationWorkspacePage() {
     variation_description: string;
     full_script: string;
     storyboard: StoryboardScene[];
+    production_note?: ProductionNote;
     id: string;
     auto_params?: Record<string, string>;
     model_used?: string;
@@ -805,33 +806,26 @@ export default function GenerationWorkspacePage() {
                   </div>
                 </div>
 
-                {/* Storyboard */}
-                {result.storyboard && result.storyboard.length > 0 && (
+                {/* Production Note */}
+                {result.production_note && (
                   <div>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Phân cảnh</h4>
-                    <div className="grid grid-cols-1 gap-2">
-                      {result.storyboard.map((scene, i) => (
-                        <div key={i} className="bg-gray-50/80 rounded-[12px] p-3.5 text-xs relative overflow-hidden">
-                          {/* Scene number badge */}
-                          <div className="absolute top-3 right-3">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                              {scene.scene}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-emerald-600">Cảnh {scene.scene}</span>
-                            <span className="text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{scene.duration}</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-gray-600">
-                            <div><span className="font-medium text-gray-500">VO:</span> {scene.voiceover}</div>
-                            <div><span className="font-medium text-gray-500">Hình:</span> {scene.visual}</div>
-                            {scene.text_overlay && (
-                              <div><span className="font-medium text-gray-500">Text:</span> {scene.text_overlay}</div>
-                            )}
-                            <div><span className="font-medium text-gray-500">Nhạc:</span> {scene.music_mood}</div>
-                          </div>
-                        </div>
-                      ))}
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gợi ý dựng</h4>
+                    <div className="bg-gray-50/80 rounded-[12px] p-4 space-y-2 text-xs text-gray-600">
+                      {result.production_note.visual_style && (
+                        <div><span className="font-semibold text-gray-700">Visual:</span> {result.production_note.visual_style}</div>
+                      )}
+                      {result.production_note.footage_suggestions && (
+                        <div><span className="font-semibold text-gray-700">Footage:</span> {result.production_note.footage_suggestions}</div>
+                      )}
+                      {result.production_note.music_mood && (
+                        <div><span className="font-semibold text-gray-700">Nhạc:</span> {result.production_note.music_mood}</div>
+                      )}
+                      {result.production_note.text_overlay_tips && (
+                        <div><span className="font-semibold text-gray-700">Text overlay:</span> {result.production_note.text_overlay_tips}</div>
+                      )}
+                      {result.production_note.estimated_duration && (
+                        <div><span className="font-semibold text-gray-700">Độ dài:</span> {result.production_note.estimated_duration}</div>
+                      )}
                     </div>
                   </div>
                 )}

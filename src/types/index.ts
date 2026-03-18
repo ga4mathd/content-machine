@@ -56,6 +56,14 @@ export interface StoryboardScene {
   transition: string;
 }
 
+export interface ProductionNote {
+  visual_style: string;
+  footage_suggestions: string;
+  music_mood: string;
+  text_overlay_tips: string;
+  estimated_duration: string;
+}
+
 // ===== Variation Types =====
 
 export interface VariationParam {
@@ -90,6 +98,7 @@ export interface VariationOutput {
   variation_description: string;
   full_script: string;
   storyboard: StoryboardScene[];
+  production_note?: ProductionNote;
   fingerprint: {
     hook_type: string;
     character: string;
