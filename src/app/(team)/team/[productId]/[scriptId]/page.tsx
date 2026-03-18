@@ -93,6 +93,8 @@ export default function GenerationWorkspacePage() {
     storyboard: StoryboardScene[];
     id: string;
     auto_params?: Record<string, string>;
+    model_used?: string;
+    is_fallback?: boolean;
   } | null>(null);
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [compareGen, setCompareGen] = useState<Generation | null>(null);
@@ -183,7 +185,7 @@ export default function GenerationWorkspacePage() {
       }
 
       if (data.data && data.data.length > 0) {
-        setResult(data.data[0]);
+        setResult({ ...data.data[0], model_used: data.model_used, is_fallback: data.is_fallback });
         loadGenerations();
         loadData();
       }
@@ -229,7 +231,7 @@ export default function GenerationWorkspacePage() {
       }
 
       if (data.data && data.data.length > 0) {
-        setResult(data.data[0]);
+        setResult({ ...data.data[0], model_used: data.model_used, is_fallback: data.is_fallback });
         loadGenerations();
         loadData();
       }
@@ -703,7 +705,19 @@ export default function GenerationWorkspacePage() {
             {result && !generating && (
               <div className="bg-white/80 backdrop-blur-sm rounded-[16px] border border-white/60 shadow-card p-5 space-y-4 sticky top-4 animate-slide-in-right">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 text-sm">{result.variation_label}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-900 text-sm">{result.variation_label}</h3>
+                    {result.model_used && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        result.model_used === 'claude'
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {result.model_used === 'claude' ? '🟠 Claude' : '🔵 Gemini'}
+                        {result.is_fallback && <span className="text-red-500">(fallback)</span>}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => handleCopy(result.full_script)}

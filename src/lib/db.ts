@@ -59,6 +59,11 @@ function initSchema(db: Database.Database) {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_scripts_product ON scripts(product_id);
     CREATE INDEX IF NOT EXISTS idx_gen_script ON generations(script_id);
     CREATE INDEX IF NOT EXISTS idx_gen_fingerprint ON generations(fingerprint);
