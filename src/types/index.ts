@@ -97,6 +97,7 @@ export interface VariationOutput {
     cta_type: string;
     format: string;
   };
+  auto_params?: Record<string, string>;
 }
 
 // ===== Generation Request =====
@@ -106,6 +107,7 @@ export interface GenerateRequest {
   variation_types: string[]; // e.g. ['A1', 'C2']
   variation_params: Record<string, string>;
   num_variations?: number;
+  strategy_id?: string; // auto mode: AI picks params
 }
 
 // ===== Auth =====

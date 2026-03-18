@@ -5,12 +5,43 @@ import { incrementTimesMultiplied } from '@/lib/db/scripts';
 import { generateVariation } from '@/lib/ai/claude-client';
 import { generateFingerprint, computeSimilarity } from '@/lib/anti-dup/fingerprint';
 import { buildPreviousVariationsContext } from '@/lib/anti-dup/context-injector';
+import { getStrategy } from '@/lib/ai/strategies';
+import { getUsedCombos } from '@/lib/anti-dup/freshness-calculator';
 import type { GenerateRequest, VariationOutput } from '@/types';
+
+function getBestComboForStrategy(scriptId: string, strategyId: string): string[] {
+  const strategy = getStrategy(strategyId);
+  if (!strategy) return [];
+
+  const usedCombos = getUsedCombos(scriptId);
+
+  let bestCombo = strategy.combos[0];
+  let bestCount = Infinity;
+
+  for (const combo of strategy.combos) {
+    const comboKey = [...combo].sort().join('+');
+    const count = usedCombos.get(comboKey) || 0;
+    if (count < bestCount) {
+      bestCount = count;
+      bestCombo = combo;
+    }
+  }
+
+  return bestCombo;
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body: GenerateRequest = await req.json();
-    const { script_id, variation_types, variation_params, num_variations = 1 } = body;
+    const { script_id, num_variations = 1 } = body;
+    let { variation_types, variation_params } = body;
+    const { strategy_id } = body;
+
+    // Auto mode: resolve strategy to best combo
+    if (strategy_id && script_id) {
+      variation_types = getBestComboForStrategy(script_id, strategy_id);
+      variation_params = {}; // AI will auto-fill
+    }
 
     if (!script_id || !variation_types || variation_types.length === 0) {
       return NextResponse.json(
