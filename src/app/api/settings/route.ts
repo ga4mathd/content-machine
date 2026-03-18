@@ -6,19 +6,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const aiModel = getSetting('ai_model', 'claude');
-    // Debug: check actual env var presence
-    const claudeKey = process.env.CLAUDE_API_KEY || '';
-    const geminiKey = process.env.GEMINI_API_KEY || '';
-
     return NextResponse.json({
       success: true,
       data: {
         ai_model: aiModel,
-        has_claude_key: claudeKey.length > 0,
-        has_gemini_key: geminiKey.length > 0,
-        debug_claude_len: claudeKey.length,
-        debug_gemini_len: geminiKey.length,
-        debug_gemini_prefix: geminiKey.substring(0, 5),
+        has_claude_key: !!(process.env.CLAUDE_API_KEY),
+        has_gemini_key: !!(process.env.GEMINI_API_KEY),
       },
     });
   } catch (err: unknown) {

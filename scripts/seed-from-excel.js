@@ -117,13 +117,15 @@ function extractScripts(sheetName) {
 const insertProduct = db.prepare('INSERT INTO products (id, name, market, kb_content) VALUES (?, ?, ?, ?)');
 const insertScript = db.prepare('INSERT INTO scripts (id, product_id, title, content, performance_notes) VALUES (?, ?, ?, ?, ?)');
 
-// Check if products already exist
-const existingProducts = db.prepare('SELECT COUNT(*) as count FROM products').get();
-if (existingProducts.count > 0) {
-  console.log(`⚠️  Database already has ${existingProducts.count} products. Skipping seed to avoid duplicates.`);
-  console.log('   To re-seed, delete data/content-machine.db first.');
+// Check if data already exists
+const existingScripts = db.prepare('SELECT COUNT(*) as count FROM scripts').get();
+if (existingScripts.count > 0) {
+  console.log(`⚠️  Database already has ${existingScripts.count} scripts. Skipping seed.`);
   process.exit(0);
 }
+
+// Clear any orphan products before re-seeding
+db.prepare('DELETE FROM products').run();
 
 const seed = db.transaction(() => {
   // Product 1: Giao tiếp
