@@ -8,7 +8,10 @@ let db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (!db) {
-    const dataDir = path.join(process.cwd(), 'data');
+    // On Railway, use fixed path to match volume mount /app/data
+    const dataDir = process.env.RAILWAY_ENVIRONMENT
+      ? '/app/data'
+      : path.join(process.cwd(), 'data');
     // Ensure data directory exists (important for production/Docker)
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
