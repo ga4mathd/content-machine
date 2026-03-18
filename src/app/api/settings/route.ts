@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSetting, setSetting } from '@/lib/db/settings';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const aiModel = getSetting('ai_model', 'claude');
